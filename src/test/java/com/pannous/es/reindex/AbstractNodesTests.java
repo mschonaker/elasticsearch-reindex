@@ -21,10 +21,8 @@ public abstract class AbstractNodesTests {
     protected final ESLogger logger = Loggers.getLogger(getClass());
     private Map<String, Node> nodes = new HashMap<String, Node>();
     private Map<String, Client> clients = new HashMap<String, Client>();
-    private Settings defaultSettings = ImmutableSettings
-            .settingsBuilder()
-            .put("cluster.name", "test-cluster-" + NetworkUtils.getLocalAddress().getHostName())
-            .build();
+    private Settings defaultSettings = ImmutableSettings.settingsBuilder()
+            .put("cluster.name", "test-cluster-" + NetworkUtils.getLocalAddress().getHostName()).build();
 
     public void putDefaultSettings(Settings.Builder settings) {
         putDefaultSettings(settings.build());
@@ -56,12 +54,8 @@ public abstract class AbstractNodesTests {
 
     public Node buildNode(String id, Settings settings) {
         String settingsSource = getClass().getName().replace('.', '/') + ".yml";
-        Settings finalSettings = settingsBuilder()
-                .loadFromClasspath(settingsSource)
-                .put(defaultSettings)
-                .put(settings)
-                .put("name", id)
-                .build();
+        Settings finalSettings = settingsBuilder().loadFromClasspath(settingsSource).put(defaultSettings).put(settings)
+                .put("name", id).build();
 
         if (finalSettings.get("gateway.type") == null) {
             // default to non gateway
@@ -72,9 +66,7 @@ public abstract class AbstractNodesTests {
             finalSettings = settingsBuilder().put(finalSettings).put("cluster.routing.schedule", "50ms").build();
         }
 
-        Node node = nodeBuilder()
-                .settings(finalSettings)
-                .build();
+        Node node = nodeBuilder().settings(finalSettings).build();
         nodes.put(id, node);
         clients.put(id, node.client());
         return node;

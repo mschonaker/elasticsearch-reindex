@@ -23,8 +23,8 @@ import org.elasticsearch.search.SearchHit;
 import org.elasticsearch.search.SearchHits;
 
 /**
- * Searches with the given client - used for the same cluster. Not suited for
- * other clusters as they could have an incompatible version.
+ * Searches with the given client - used for the same cluster. Not suited for other clusters as they could have an
+ * incompatible version.
  *
  * @author Peter Karich
  */
@@ -41,29 +41,35 @@ public class MySearchResponseES implements MySearchResponse {
         this.keepTimeInMinutes = keepTimeInMinutes;
     }
 
-    @Override public MySearchHits hits() {
+    @Override
+    public MySearchHits hits() {
         final SearchHits hits = rsp.getHits();
         // uh iterable is strange
         return new MySearchHits() {
-            @Override public Iterable<MySearchHit> getHits() {
+            @Override
+            public Iterable<MySearchHit> getHits() {
                 return new Iterable<MySearchHit>() {
-                    @Override public Iterator<MySearchHit> iterator() {
+                    @Override
+                    public Iterator<MySearchHit> iterator() {
                         return new Iterator<MySearchHit>() {
                             SearchHit[] arr = hits.hits();
                             int counter = 0;
 
-                            @Override public boolean hasNext() {
+                            @Override
+                            public boolean hasNext() {
                                 return counter < arr.length;
                             }
 
-                            @Override public MySearchHit next() {
+                            @Override
+                            public MySearchHit next() {
                                 bytes += arr[counter].source().length;
                                 MySearchHitES ret = new MySearchHitES(arr[counter]);
                                 counter++;
                                 return ret;
                             }
 
-                            @Override public void remove() {
+                            @Override
+                            public void remove() {
                                 throw new UnsupportedOperationException("Not supported yet.");
                             }
                         };
@@ -78,13 +84,15 @@ public class MySearchResponseES implements MySearchResponse {
         };
     }
 
-    @Override public String scrollId() {
+    @Override
+    public String scrollId() {
         return rsp.getScrollId();
     }
 
-    @Override public int doScoll() {
-        rsp = client.prepareSearchScroll(scrollId()).setScroll(TimeValue.timeValueMinutes(keepTimeInMinutes)).
-                execute().actionGet();
+    @Override
+    public int doScoll() {
+        rsp = client.prepareSearchScroll(scrollId()).setScroll(TimeValue.timeValueMinutes(keepTimeInMinutes)).execute()
+                .actionGet();
         return rsp.getHits().hits().length;
     }
 
@@ -101,21 +109,25 @@ public class MySearchResponseES implements MySearchResponse {
             this.sh = sh;
         }
 
-        @Override public String id() {
+        @Override
+        public String id() {
             return sh.id();
         }
 
-        @Override public String parent() {
-           if (sh.field("_parent") != null)
-              return sh.field("_parent").value();
-           return "";
+        @Override
+        public String parent() {
+            if (sh.field("_parent") != null)
+                return sh.field("_parent").value();
+            return "";
         }
 
-        @Override public long version() {
+        @Override
+        public long version() {
             return sh.version();
         }
 
-        @Override public byte[] source() {
+        @Override
+        public byte[] source() {
             return sh.source();
         }
     }

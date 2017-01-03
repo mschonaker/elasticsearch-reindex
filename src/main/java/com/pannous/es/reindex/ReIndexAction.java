@@ -29,8 +29,9 @@ import static org.elasticsearch.rest.RestStatus.*;
  */
 public class ReIndexAction extends BaseRestHandler {
 
-    @Inject public ReIndexAction(Settings settings, Client client, RestController controller) {
-        super(settings, controller, client);
+    @Inject
+    public ReIndexAction(Settings settings, Client client, RestController controller) {
+        super(settings, client);
 
         if (controller != null) {
             // Define REST endpoints to do a reindex
@@ -39,11 +40,18 @@ public class ReIndexAction extends BaseRestHandler {
         }
     }
 
-    @Override public void handleRequest(RestRequest request, RestChannel channel, Client client) {
+    // @Override
+    // public void handleRequest(RestRequest request, RestChannel channel, Client client) {
+    // handleRequest(request, channel, null, false, client);
+    // }
+
+    @Override
+    public void handleRequest(RestRequest request, RestChannel channel) throws Exception {
         handleRequest(request, channel, null, false, client);
     }
 
-    public void handleRequest(RestRequest request, RestChannel channel, String newTypeOverride, boolean internalCall, Client client) {
+    public void handleRequest(RestRequest request, RestChannel channel, String newTypeOverride, boolean internalCall,
+            Client client) {
         logger.info("ReIndexAction.handleRequest [{}]", request.params());
         String newIndexName = request.param("index");
         String searchIndexName = request.param("searchIndex");
@@ -66,8 +74,8 @@ public class ReIndexAction extends BaseRestHandler {
         String filter = request.content().toUtf8();
         MySearchResponse rsp;
         if (localAction) {
-            SearchRequestBuilder srb = createScrollSearch(searchIndexName, searchType, filter,
-                    hitsPerPage, withVersion, keepTimeInMinutes, client);
+            SearchRequestBuilder srb = createScrollSearch(searchIndexName, searchType, filter, hitsPerPage, withVersion,
+                    keepTimeInMinutes, client);
             SearchResponse sr = srb.execute().actionGet();
             rsp = new MySearchResponseES(client, sr, keepTimeInMinutes);
         } else {
@@ -89,24 +97,19 @@ public class ReIndexAction extends BaseRestHandler {
             channel.sendResponse(new BytesRestResponse(OK));
     }
 
-    public SearchRequestBuilder createScrollSearch(String oldIndexName, String oldType, String filter,
-            int hitsPerPage, boolean withVersion, int keepTimeInMinutes, Client client) {
-        SearchRequestBuilder srb = client.prepareSearch(oldIndexName).
-                setTypes(oldType).
-                setVersion(withVersion).
-                setSize(hitsPerPage).
-                setSearchType(SearchType.SCAN).
-                addField("_source").
-                addField("_parent").
-                setScroll(TimeValue.timeValueMinutes(keepTimeInMinutes));
+    public SearchRequestBuilder createScrollSearch(String oldIndexName, String oldType, String filter, int hitsPerPage,
+            boolean withVersion, int keepTimeInMinutes, Client client) {
+        SearchRequestBuilder srb = client.prepareSearch(oldIndexName).setTypes(oldType).setVersion(withVersion)
+                .setSize(hitsPerPage).setSearchType(SearchType.SCAN).addField("_source").addField("_parent")
+                .setScroll(TimeValue.timeValueMinutes(keepTimeInMinutes));
 
         if (filter != null && !filter.trim().isEmpty())
             srb.setPostFilter(filter);
         return srb;
     }
 
-    public int reindex(MySearchResponse rsp, String newIndex, String newType, boolean withVersion,
-            float waitSeconds, Client client) {
+    public int reindex(MySearchResponse rsp, String newIndex, String newType, boolean withVersion, float waitSeconds,
+            Client client) {
         boolean flushEnabled = false;
         long total = rsp.hits().totalHits();
         int collectedResults = 0;
@@ -135,12 +138,12 @@ public class ReIndexAction extends BaseRestHandler {
 
             updateWatch.stop();
             collectedResults += currentResults;
-            logger.debug("Progress " + collectedResults + "/" + total
-                    + ". Time of update:" + updateWatch.totalTime().getSeconds() + " query:"
-                    + queryWatch.totalTime().getSeconds() + " failed:" + failed);
+            logger.debug("Progress " + collectedResults + "/" + total + ". Time of update:"
+                    + updateWatch.totalTime().getSeconds() + " query:" + queryWatch.totalTime().getSeconds()
+                    + " failed:" + failed);
         }
-        String str = "found " + total + ", collected:" + collectedResults
-                + ", transfered:" + (float) rsp.bytes() / (1 << 20) + "MB";
+        String str = "found " + total + ", collected:" + collectedResults + ", transfered:"
+                + (float) rsp.bytes() / (1 << 20) + "MB";
         if (failed > 0)
             logger.warn(failed + " FAILED documents! " + str);
         else
@@ -148,8 +151,8 @@ public class ReIndexAction extends BaseRestHandler {
         return collectedResults;
     }
 
-    Collection<Integer> bulkUpdate(MySearchHits objects, String indexName,
-            String newType, boolean withVersion, Client client) {
+    Collection<Integer> bulkUpdate(MySearchHits objects, String indexName, String newType, boolean withVersion,
+            Client client) {
         BulkRequestBuilder brb = client.prepareBulk();
         for (MySearchHit hit : objects.getHits()) {
             if (hit.id() == null || hit.id().isEmpty()) {
@@ -158,7 +161,8 @@ public class ReIndexAction extends BaseRestHandler {
             }
 
             try {
-                IndexRequest indexReq = Requests.indexRequest(indexName).type(newType).id(hit.id()).source(hit.source());
+                IndexRequest indexReq = Requests.indexRequest(indexName).type(newType).id(hit.id())
+                        .source(hit.source());
                 if (withVersion)
                     indexReq.version(hit.version());
                 if (hit.parent() != null && !hit.parent().isEmpty()) {

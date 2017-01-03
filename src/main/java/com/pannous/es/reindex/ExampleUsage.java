@@ -16,8 +16,7 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 /**
- * Class to use the reindex plugin as rewrite/refeed plugin - directly from
- * java.
+ * Class to use the reindex plugin as rewrite/refeed plugin - directly from java.
  *
  * @author Peter Karich
  */
@@ -49,18 +48,18 @@ public class ExampleUsage {
             basicAuthCredentials = "base64_ifrequried=";
         }
 
-        Logger.getLogger("test").info("querying " + searchHost + ":" + searchPort
-                + " at " + searchIndexName + " with " + basicAuthCredentials);
+        Logger.getLogger("test").info("querying " + searchHost + ":" + searchPort + " at " + searchIndexName + " with "
+                + basicAuthCredentials);
 
-        Settings settings = ImmutableSettings.settingsBuilder()
-                .put("cluster.name", cluster).build();
-        Client client = new TransportClient(settings).
-                addTransportAddress(new InetSocketTransportAddress(searchHost, searchPort));
+        Settings settings = ImmutableSettings.settingsBuilder().put("cluster.name", cluster).build();
+        Client client = new TransportClient(settings)
+                .addTransportAddress(new InetSocketTransportAddress(searchHost, searchPort));
 
         Settings emptySettings = ImmutableSettings.settingsBuilder().build();
         RestController contrl = new RestController(emptySettings);
         ReIndexAction action = new ReIndexAction(emptySettings, client, contrl) {
-            @Override protected MySearchHits callback(MySearchHits hits) {
+            @Override
+            protected MySearchHits callback(MySearchHits hits) {
                 SimpleList res = new SimpleList(hitsPerPage, hits.totalHits());
                 for (MySearchHit h : hits.getHits()) {
                     try {
@@ -80,8 +79,8 @@ public class ExampleUsage {
             }
         };
         // first query, further scroll-queries in reindex!
-        SearchRequestBuilder srb = action.createScrollSearch(searchIndexName, searchType, filter,
-                hitsPerPage, withVersion, keepTimeInMinutes, client);
+        SearchRequestBuilder srb = action.createScrollSearch(searchIndexName, searchType, filter, hitsPerPage,
+                withVersion, keepTimeInMinutes, client);
         SearchResponse sr = srb.execute().actionGet();
         MySearchResponse rsp = new MySearchResponseES(client, sr, keepTimeInMinutes);
 
@@ -105,7 +104,8 @@ public class ExampleUsage {
             hits.add(hit);
         }
 
-        @Override public Iterable<MySearchHit> getHits() {
+        @Override
+        public Iterable<MySearchHit> getHits() {
             return hits;
         }
 
@@ -154,18 +154,23 @@ public class ExampleUsage {
             }
         }
 
-        @Override public String id() {
+        @Override
+        public String id() {
             return id;
         }
-        
-        @Override public String parent() {
+
+        @Override
+        public String parent() {
             return parent;
         }
-        @Override public long version() {
+
+        @Override
+        public long version() {
             return version;
         }
 
-        @Override public byte[] source() {
+        @Override
+        public byte[] source() {
             try {
                 return json.toString().getBytes(charset);
             } catch (UnsupportedEncodingException ex) {

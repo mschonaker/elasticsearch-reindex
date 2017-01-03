@@ -21,6 +21,6 @@ package com.pannous.es.reindex;
 public interface MySearchHits {
 
     Iterable<MySearchHit> getHits();
-    
+
     long totalHits();
 }

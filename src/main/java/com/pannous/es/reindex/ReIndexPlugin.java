@@ -10,18 +10,21 @@ import org.elasticsearch.rest.RestModule;
  * @author Peter Karich
  */
 public class ReIndexPlugin extends AbstractPlugin {
-    
+
     protected final ESLogger logger = Loggers.getLogger(ReIndexPlugin.class);
 
-    @Override public String name() {
+    @Override
+    public String name() {
         return "reindex";
     }
 
-    @Override public String description() {
+    @Override
+    public String description() {
         return "ReIndex Plugin";
     }
 
-    @Override public void processModule(Module module) {
+    @Override
+    public void processModule(Module module) {
         if (module instanceof RestModule) {
             ((RestModule) module).addRestAction(ReIndexAction.class);
             ((RestModule) module).addRestAction(ReIndexWithCreate.class);

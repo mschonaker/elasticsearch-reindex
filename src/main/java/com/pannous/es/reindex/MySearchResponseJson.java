@@ -61,9 +61,8 @@ public class MySearchResponseJson implements MySearchResponse {
     private long bytes;
     private String credentials = "";
 
-    public MySearchResponseJson(String searchHost, int searchPort, String searchIndexName,
-            String searchType, String filter, String credentials,
-            int hitsPerPage, boolean withVersion, int keepTimeInMinutes) {
+    public MySearchResponseJson(String searchHost, int searchPort, String searchIndexName, String searchType,
+            String filter, String credentials, int hitsPerPage, boolean withVersion, int keepTimeInMinutes) {
         if (!searchHost.startsWith("http"))
             searchHost = "http://" + searchHost;
         this.host = searchHost;
@@ -73,16 +72,16 @@ public class MySearchResponseJson implements MySearchResponse {
         bufferedHits = new ArrayList<MySearchHit>(hitsPerPage);
         PoolingClientConnectionManager connManager = new PoolingClientConnectionManager();
         connManager.setMaxTotal(10);
-        
+
         BasicHttpParams params = new BasicHttpParams();
-        HttpConnectionParams.setConnectionTimeout(params, timeout);      
+        HttpConnectionParams.setConnectionTimeout(params, timeout);
         HttpProtocolParams.setVersion(params, HttpVersion.HTTP_1_1);
-        HttpProtocolParams.setContentCharset(params, "UTF-8");        
-        client = new DefaultHttpClient(connManager, params);                        
-        
+        HttpProtocolParams.setContentCharset(params, "UTF-8");
+        client = new DefaultHttpClient(connManager, params);
+
         // does not work!? client.getParams().setParameter("Authorization", "Basic " + credentials);
         if (credentials != null)
-            this.credentials = credentials;        
+            this.credentials = credentials;
 
         // initial query to get scroll id for our specific search
         try {
@@ -94,7 +93,7 @@ public class MySearchResponseJson implements MySearchResponse {
                 query = "{ \"query\" : {\"match_all\" : {}}, \"fields\" : [\"_source\", \"_parent\"]}";
             else
                 query = "{ \"filter\" : " + filter + ", \"fields\" : [\"_source\", \"_parent\"] }";
-           
+
             JSONObject res = doPost(url, query);
             scrollId = res.getString("_scroll_id");
             totalHits = res.getJSONObject("hits").getLong("total");
@@ -103,27 +102,32 @@ public class MySearchResponseJson implements MySearchResponse {
         }
     }
 
-    @Override public MySearchHits hits() {
+    @Override
+    public MySearchHits hits() {
         return new MySearchHits() {
-            @Override public Iterable<MySearchHit> getHits() {
+            @Override
+            public Iterable<MySearchHit> getHits() {
                 return bufferedHits;
             }
 
-            @Override public long totalHits() {
+            @Override
+            public long totalHits() {
                 return totalHits;
             }
         };
     }
 
-    @Override public String scrollId() {
+    @Override
+    public String scrollId() {
         return scrollId;
     }
 
-    @Override public int doScoll() {
+    @Override
+    public int doScoll() {
         try {
             bufferedHits.clear();
-            JSONObject json = doGet(host + ":" + port
-                    + "/_search/scroll?scroll=" + keepMin + "m&scroll_id=" + scrollId);
+            JSONObject json = doGet(
+                    host + ":" + port + "/_search/scroll?scroll=" + keepMin + "m&scroll_id=" + scrollId);
             scrollId = json.getString("_scroll_id");
             JSONObject hitsJson = json.getJSONObject("hits");
             JSONArray arr = hitsJson.getJSONArray("hits");
@@ -133,11 +137,11 @@ public class MySearchResponseJson implements MySearchResponse {
                 String id = hitJson.getString("_id");
                 String parent = "";
                 if (hitJson.has("_parent"))
-                     parent = hitJson.getString("_parent");
+                    parent = hitJson.getString("_parent");
                 if (hitJson.has("fields")) {
-                     JSONObject fields = hitJson.getJSONObject("fields");
-                     if (fields.has("_parent")) {
-                         parent = fields.getString("_parent");
+                    JSONObject fields = hitJson.getJSONObject("fields");
+                    if (fields.has("_parent")) {
+                        parent = fields.getString("_parent");
                     }
                 }
                 String sourceStr = hitJson.getString("_source");
@@ -173,19 +177,23 @@ public class MySearchResponseJson implements MySearchResponse {
             this.version = version;
         }
 
-        @Override public String id() {
+        @Override
+        public String id() {
             return id;
         }
 
-        @Override public String parent() {
+        @Override
+        public String parent() {
             return parent;
         }
 
-        @Override public long version() {
+        @Override
+        public long version() {
             return version;
         }
 
-        @Override public byte[] source() {
+        @Override
+        public byte[] source() {
             return source;
         }
     }
@@ -193,7 +201,7 @@ public class MySearchResponseJson implements MySearchResponse {
     protected HttpURLConnection createUrlConnection(String urlAsStr, int timeout)
             throws MalformedURLException, IOException {
         URL url = new URL(urlAsStr);
-        //using proxy may increase latency
+        // using proxy may increase latency
         HttpURLConnection hConn = (HttpURLConnection) url.openConnection(Proxy.NO_PROXY);
         hConn.setRequestProperty("User-Agent", "ElasticSearch reindex");
         hConn.setRequestProperty("Accept", "application/json");
@@ -220,11 +228,11 @@ public class MySearchResponseJson implements MySearchResponse {
             if (ret / 200 == 1)
                 return new JSONObject(readString(rsp.getEntity().getContent(), "UTF-8"));
 
-            throw new RuntimeException("Problem " + ret + " while " + http.getMethod()
-                    + " " + readString(rsp.getEntity().getContent(), "UTF-8"));
+            throw new RuntimeException("Problem " + ret + " while " + http.getMethod() + " "
+                    + readString(rsp.getEntity().getContent(), "UTF-8"));
         } catch (Exception ex) {
-            throw new RuntimeException("Problem while " + http.getMethod()
-                    + ", Error:" + ex.getMessage() + ", url:" + url, ex);
+            throw new RuntimeException(
+                    "Problem while " + http.getMethod() + ", Error:" + ex.getMessage() + ", url:" + url, ex);
         } finally {
             http.releaseConnection();
         }
@@ -246,11 +254,11 @@ public class MySearchResponseJson implements MySearchResponse {
             if (ret / 200 == 1)
                 return readString(rsp.getEntity().getContent(), "UTF-8");
 
-            throw new RuntimeException("Problem " + ret + " while " + http.getMethod()
-                    + " " + readString(rsp.getEntity().getContent(), "UTF-8"));
+            throw new RuntimeException("Problem " + ret + " while " + http.getMethod() + " "
+                    + readString(rsp.getEntity().getContent(), "UTF-8"));
         } catch (Exception ex) {
-            throw new RuntimeException("Problem while " + http.getMethod()
-                    + ", Error:" + ex.getMessage() + ", url:" + http.getURI(), ex);
+            throw new RuntimeException(
+                    "Problem while " + http.getMethod() + ", Error:" + ex.getMessage() + ", url:" + http.getURI(), ex);
         } finally {
             http.releaseConnection();
         }

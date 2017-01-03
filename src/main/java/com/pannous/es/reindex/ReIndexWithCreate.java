@@ -31,19 +31,25 @@ public class ReIndexWithCreate extends BaseRestHandler {
 
     private ReIndexAction reindexAction;
 
-    @Inject public ReIndexWithCreate(Settings settings, Client client, RestController controller) {
-	super(settings, controller, client);
+    @Inject
+    public ReIndexWithCreate(Settings settings, Client client, RestController controller) {
+        super(settings, client);
 
-	// Define REST endpoints to do a reindex
-	controller.registerHandler(PUT, "/_reindex", this);
+        // Define REST endpoints to do a reindex
+        controller.registerHandler(PUT, "/_reindex", this);
         controller.registerHandler(POST, "/_reindex", this);
 
         // give null controller as argument to avoid registering twice
         // which would lead to an assert exception
         reindexAction = new ReIndexAction(settings, client, null);
     }
+    
+    @Override
+    public void handleRequest(RestRequest request, RestChannel channel) throws Exception {
+        handleRequest(request, channel, client);
+    }
 
-    @Override public void handleRequest(RestRequest request, RestChannel channel, Client client) {
+    public void handleRequest(RestRequest request, RestChannel channel, Client client) {
         logger.info("ReIndexWithCreate.handleRequest [{}]", request.toString());
         try {
             // required parameters
@@ -56,31 +62,32 @@ public class ReIndexWithCreate extends BaseRestHandler {
             if (type.isEmpty()) {
                 channel.sendResponse(new BytesRestResponse(RestStatus.EXPECTATION_FAILED, "parameter type missing"));
                 return;
-	    }
+            }
             String searchIndexName = request.param("searchIndex");
             if (searchIndexName.isEmpty()) {
-                channel.sendResponse(new BytesRestResponse(RestStatus.EXPECTATION_FAILED, "parameter searchIndex missing"));
+                channel.sendResponse(
+                        new BytesRestResponse(RestStatus.EXPECTATION_FAILED, "parameter searchIndex missing"));
                 return;
-	    }
+            }
 
-	    String skipType = request.param("skipType", "");
-	    List<String>skipTypeList;
-	    if (!skipType.isEmpty()) {
-	      skipTypeList=Arrays.asList(skipType.trim().split(","));
-	    }else{
-	      skipTypeList = new ArrayList<String>();
+            String skipType = request.param("skipType", "");
+            List<String> skipTypeList;
+            if (!skipType.isEmpty()) {
+                skipTypeList = Arrays.asList(skipType.trim().split(","));
+            } else {
+                skipTypeList = new ArrayList<String>();
             }
 
             int newShards = request.paramAsInt("newIndexShards", -1);
             try {
-                if(client.admin().indices().exists(new IndicesExistsRequest(newIndexName)).actionGet().isExists()) {
+                if (client.admin().indices().exists(new IndicesExistsRequest(newIndexName)).actionGet().isExists()) {
                     logger.info("target index already exists, skip creation: " + newIndexName);
-                }
-                else {
+                } else {
                     createIdenticalIndex(searchIndexName, type, newIndexName, newShards, client);
                 }
             } catch (Exception ex) {
-                String str = "Problem while creating index " + newIndexName + " from " + searchIndexName + " " + ex.getMessage();
+                String str = "Problem while creating index " + newIndexName + " from " + searchIndexName + " "
+                        + ex.getMessage();
                 logger.error(str, ex);
                 channel.sendResponse(new BytesRestResponse(RestStatus.INTERNAL_SERVER_ERROR, str));
                 return;
@@ -88,33 +95,32 @@ public class ReIndexWithCreate extends BaseRestHandler {
 
             // TODO: what if queries goes to the old index while we reindexed?
             // now reindex
-        
-            if(type.equals("*")) {
 
-                IndexMetaData indexData = client.admin().cluster().state(new ClusterStateRequest()).
-                        actionGet().getState().metaData().indices().get(searchIndexName);
+            if (type.equals("*")) {
+
+                IndexMetaData indexData = client.admin().cluster().state(new ClusterStateRequest()).actionGet()
+                        .getState().metaData().indices().get(searchIndexName);
                 Settings searchIndexSettings = indexData.settings();
 
-                for(ObjectCursor<String> mapKeyCursor : indexData.mappings().keys()) {
-		  if (skipTypeList.contains(mapKeyCursor.value)) {
-		    logger.info("Skip type [{}]", mapKeyCursor.value);
-		    continue;
-		  }
-		  reindexAction.handleRequest(request, channel, mapKeyCursor.value, true, client);
+                for (ObjectCursor<String> mapKeyCursor : indexData.mappings().keys()) {
+                    if (skipTypeList.contains(mapKeyCursor.value)) {
+                        logger.info("Skip type [{}]", mapKeyCursor.value);
+                        continue;
+                    }
+                    reindexAction.handleRequest(request, channel, mapKeyCursor.value, true, client);
                 }
-            }
-            else {
+            } else {
                 reindexAction.handleRequest(request, channel, type, true, client);
             }
 
             boolean delete = request.paramAsBoolean("delete", false);
             if (delete) {
-            
+
                 // make sure to refresh the index here
                 // (e.g. the index may be paused or refreshing with a very long interval):
                 logger.info("refreshing " + searchIndexName);
                 client.admin().indices().refresh(new RefreshRequest(newIndexName)).actionGet();
-            
+
                 long oldCount = client.count(new CountRequest(searchIndexName)).actionGet().getCount();
                 long newCount = client.count(new CountRequest(newIndexName)).actionGet().getCount();
                 if (oldCount == newCount) {
@@ -126,9 +132,9 @@ public class ReIndexWithCreate extends BaseRestHandler {
             boolean copyAliases = request.paramAsBoolean("copyAliases", false);
             if (copyAliases)
                 copyAliases(request, client);
-                
+
             channel.sendResponse(new BytesRestResponse(OK));
-                
+
         } catch (Exception ex) { // also catch the RuntimeException thrown by ReIndexAction
             try {
                 channel.sendResponse(new BytesRestResponse(channel, ex));
@@ -141,29 +147,27 @@ public class ReIndexWithCreate extends BaseRestHandler {
     /**
      * Creates a new index out of the settings from the old index.
      */
-    private void createIdenticalIndex(String oldIndex, String type,
-            String newIndex, int newIndexShards, Client client) throws IOException {
-        IndexMetaData indexData = client.admin().cluster().state(new ClusterStateRequest()).
-                actionGet().getState().metaData().indices().get(oldIndex);
+    private void createIdenticalIndex(String oldIndex, String type, String newIndex, int newIndexShards, Client client)
+            throws IOException {
+        IndexMetaData indexData = client.admin().cluster().state(new ClusterStateRequest()).actionGet().getState()
+                .metaData().indices().get(oldIndex);
         Settings searchIndexSettings = indexData.settings();
         ImmutableSettings.Builder settingBuilder = ImmutableSettings.settingsBuilder().put(searchIndexSettings);
         if (newIndexShards > 0)
             settingBuilder.put("index.number_of_shards", newIndexShards);
-            
+
         CreateIndexRequest createReq;
-        
-        if(type.equals("*")) {
+
+        if (type.equals("*")) {
             createReq = new CreateIndexRequest(newIndex);
-            for(ObjectObjectCursor<String, MappingMetaData> mapCursor : indexData.mappings()) {
+            for (ObjectObjectCursor<String, MappingMetaData> mapCursor : indexData.mappings()) {
                 createReq.mapping(mapCursor.key, mapCursor.value.sourceAsMap());
             }
             createReq.settings(settingBuilder.build());
-        }
-        else {
+        } else {
             MappingMetaData mappingMeta = indexData.mapping(type);
-            createReq = new CreateIndexRequest(newIndex).
-                mapping(type, mappingMeta.sourceAsMap()).
-                settings(settingBuilder.build());
+            createReq = new CreateIndexRequest(newIndex).mapping(type, mappingMeta.sourceAsMap())
+                    .settings(settingBuilder.build());
         }
 
         client.admin().indices().create(createReq).actionGet();
@@ -177,27 +181,26 @@ public class ReIndexWithCreate extends BaseRestHandler {
     }
 
     private void copyAliases(String index, String searchIndexName, Boolean aliasIncludeIndex, Client client) {
-        IndexMetaData meta = client.admin().cluster().state(new ClusterStateRequest()).
-                actionGet().getState().metaData().index(searchIndexName);
+        IndexMetaData meta = client.admin().cluster().state(new ClusterStateRequest()).actionGet().getState().metaData()
+                .index(searchIndexName);
         IndicesAliasesRequest aReq = new IndicesAliasesRequest();
         boolean empty = true;
-        if(meta != null && meta.aliases() != null) {
-            for (ObjectCursor<String> oldAliasCursor : meta.aliases().keys() ) {
+        if (meta != null && meta.aliases() != null) {
+            for (ObjectCursor<String> oldAliasCursor : meta.aliases().keys()) {
                 empty = false;
                 aReq.addAlias(oldAliasCursor.value, index);
             }
         }
         if (aliasIncludeIndex) {
             if (client.admin().indices().exists(new IndicesExistsRequest(searchIndexName)).actionGet().isExists()) {
-                logger.warn("Cannot add old index name (" + searchIndexName + ") as alias to index "
-                        + index + " - as old index still exists");
-            }
-            else {
+                logger.warn("Cannot add old index name (" + searchIndexName + ") as alias to index " + index
+                        + " - as old index still exists");
+            } else {
                 aReq.addAlias(searchIndexName, index);
                 empty = false;
             }
         }
-        if(!empty) //!aReq.aliasActions().isEmpty())
+        if (!empty) // !aReq.aliasActions().isEmpty())
             client.admin().indices().aliases(aReq).actionGet();
     }
 }
